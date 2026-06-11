@@ -78,7 +78,7 @@ function Home() {
         <div className="mt-3 grid grid-cols-5 gap-1.5">
           {members.map(m => (
             <Link key={m.id} to="/idols/$id" params={{ id: m.id }} className="flex flex-col items-center gap-1">
-              <Avatar name={m.stageName} gradient={m.gradient} size={42} />
+              <Avatar name={m.stageName} gradient={m.gradient} size={42} image={m.image} />
               <span className="text-[9px] font-semibold uppercase tracking-wider">{m.stageName}</span>
             </Link>
           ))}

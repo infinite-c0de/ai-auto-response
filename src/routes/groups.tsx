@@ -55,7 +55,7 @@ function Groups() {
                 <ul className="space-y-1.5">
                   {members.map((m, idx) => (
                     <li key={m.id} className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 p-1.5">
-                      <Avatar name={m.stageName} gradient={m.gradient} size={32} />
+                      <Avatar name={m.stageName} gradient={m.gradient} size={32} image={m.image} />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1 text-xs font-semibold">
                           {idx === 0 && <Crown className="h-3 w-3 text-amber-300"/>}{m.stageName}
@@ -138,7 +138,7 @@ function NewGroupModal({ onClose }: { onClose: () => void }) {
             <div className="mt-2 flex flex-wrap gap-1.5">
               {idols.filter(i=>!i.group).map(i => (
                 <button key={i.id} className="flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[11px]">
-                  <Avatar name={i.stageName} gradient={i.gradient} size={18} />{i.stageName}
+                  <Avatar name={i.stageName} gradient={i.gradient} size={18} image={i.image} />{i.stageName}
                 </button>
               ))}
             </div>
