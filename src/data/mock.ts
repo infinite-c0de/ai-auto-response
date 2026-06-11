@@ -57,6 +57,7 @@ export type Idol = {
   health: number;
   morale: number;
   energy: number;
+  image?: string;
 };
 
 const grads = [
@@ -78,7 +79,7 @@ export const idols: Idol[] = [
   { id: "sora", stageName: "Sora", fullName: "Han So-ra", age: 18, dob: "September 09, 2007", nationality: "South Korean", flag: "🇰🇷", languages: ["Korean"], personality: "Quiet, Hardworking", trainingYears: 2, role: "Solo Artist", status: "Trainee", popularity: 90, rank: 6, gradient: grads[0], stats:{vocal:74,dance:82,rap:68,visual:86,charisma:78,stamina:80,variety:70,acting:60}, health:88, morale:78, energy:90 },
   { id: "leo", stageName: "Leo", fullName: "Jang Leo", age: 22, dob: "July 04, 2003", nationality: "South Korean", flag: "🇰🇷", languages: ["Korean","English","Chinese"], personality: "Bold, Outgoing", trainingYears: 4, role: "Main Rapper", group: "ELEVATE", status: "Resting", popularity: 89, rank: 7, gradient: grads[1], stats:{vocal:72,dance:84,rap:96,visual:84,charisma:90,stamina:82,variety:88,acting:70}, health:74, morale:70, energy:60 },
   { id: "luna", stageName: "Luna", fullName: "Bae Lu-na", age: 17, dob: "December 25, 2008", nationality: "South Korean", flag: "🇰🇷", languages: ["Korean","Japanese"], personality: "Curious, Energetic", trainingYears: 1, role: "Trainee", status: "Trainee", popularity: 76, rank: 12, gradient: grads[2], stats:{vocal:66,dance:74,rap:60,visual:84,charisma:72,stamina:74,variety:64,acting:58}, health:90, morale:86, energy:92 },
-];
+].map((i) => ({ ...i, image: idolImages[i.id] })) as Idol[];
 
 export type Group = {
   id: string; name: string; fanName: string; concept: string;
