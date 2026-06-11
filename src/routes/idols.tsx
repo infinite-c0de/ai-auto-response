@@ -47,7 +47,11 @@ function Idols() {
           <Link key={i.id} to="/idols/$id" params={{ id: i.id }}
             className={`group glass rounded-2xl p-3 transition-all ${i.status === "Active" ? "neon-teal" : "border border-white/10"}`}>
             <div className={`relative h-32 overflow-hidden rounded-xl bg-gradient-to-br ${i.gradient}`}>
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.4),transparent_55%)]" />
+              {i.image ? (
+                <img src={i.image} alt={i.stageName} loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
+              ) : (
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.4),transparent_55%)]" />
+              )}
               <span className="absolute left-2 top-2 rounded-md bg-black/40 px-1.5 py-0.5 text-[9px] font-bold backdrop-blur">#{i.rank}</span>
               <span className="absolute right-2 top-2 text-base">{i.flag}</span>
               <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-2">

@@ -36,7 +36,7 @@ function TrainingPage() {
           {idols.map(i => (
             <button key={i.id} onClick={()=>setSelectedIdol(i.id)}
               className={`flex shrink-0 flex-col items-center gap-1 rounded-xl border p-2 transition-all ${selectedIdol===i.id ? "neon-teal bg-white/5" : "border-white/10 bg-white/5"}`}>
-              <Avatar name={i.stageName} gradient={i.gradient} size={44} ring={selectedIdol===i.id} />
+              <Avatar name={i.stageName} gradient={i.gradient} size={44} ring={selectedIdol===i.id} image={i.image} />
               <span className="text-[10px] font-semibold">{i.stageName}</span>
             </button>
           ))}
