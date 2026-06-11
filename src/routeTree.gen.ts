@@ -9,38 +9,274 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TrainingRouteImport } from './routes/training'
+import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as ScheduleRouteImport } from './routes/schedule'
+import { Route as RivalsRouteImport } from './routes/rivals'
+import { Route as ReleaseRouteImport } from './routes/release'
+import { Route as RecruitRouteImport } from './routes/recruit'
+import { Route as OnboardingRouteImport } from './routes/onboarding'
+import { Route as MarketRouteImport } from './routes/market'
+import { Route as IdolsRouteImport } from './routes/idols'
+import { Route as GroupsRouteImport } from './routes/groups'
+import { Route as FinanceRouteImport } from './routes/finance'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as IdolsIdRouteImport } from './routes/idols.$id'
 
+const TrainingRoute = TrainingRouteImport.update({
+  id: '/training',
+  path: '/training',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ScheduleRoute = ScheduleRouteImport.update({
+  id: '/schedule',
+  path: '/schedule',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RivalsRoute = RivalsRouteImport.update({
+  id: '/rivals',
+  path: '/rivals',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReleaseRoute = ReleaseRouteImport.update({
+  id: '/release',
+  path: '/release',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RecruitRoute = RecruitRouteImport.update({
+  id: '/recruit',
+  path: '/recruit',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OnboardingRoute = OnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MarketRoute = MarketRouteImport.update({
+  id: '/market',
+  path: '/market',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IdolsRoute = IdolsRouteImport.update({
+  id: '/idols',
+  path: '/idols',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GroupsRoute = GroupsRouteImport.update({
+  id: '/groups',
+  path: '/groups',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FinanceRoute = FinanceRouteImport.update({
+  id: '/finance',
+  path: '/finance',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const IdolsIdRoute = IdolsIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => IdolsRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/finance': typeof FinanceRoute
+  '/groups': typeof GroupsRoute
+  '/idols': typeof IdolsRouteWithChildren
+  '/market': typeof MarketRoute
+  '/onboarding': typeof OnboardingRoute
+  '/recruit': typeof RecruitRoute
+  '/release': typeof ReleaseRoute
+  '/rivals': typeof RivalsRoute
+  '/schedule': typeof ScheduleRoute
+  '/settings': typeof SettingsRoute
+  '/training': typeof TrainingRoute
+  '/idols/$id': typeof IdolsIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/finance': typeof FinanceRoute
+  '/groups': typeof GroupsRoute
+  '/idols': typeof IdolsRouteWithChildren
+  '/market': typeof MarketRoute
+  '/onboarding': typeof OnboardingRoute
+  '/recruit': typeof RecruitRoute
+  '/release': typeof ReleaseRoute
+  '/rivals': typeof RivalsRoute
+  '/schedule': typeof ScheduleRoute
+  '/settings': typeof SettingsRoute
+  '/training': typeof TrainingRoute
+  '/idols/$id': typeof IdolsIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/finance': typeof FinanceRoute
+  '/groups': typeof GroupsRoute
+  '/idols': typeof IdolsRouteWithChildren
+  '/market': typeof MarketRoute
+  '/onboarding': typeof OnboardingRoute
+  '/recruit': typeof RecruitRoute
+  '/release': typeof ReleaseRoute
+  '/rivals': typeof RivalsRoute
+  '/schedule': typeof ScheduleRoute
+  '/settings': typeof SettingsRoute
+  '/training': typeof TrainingRoute
+  '/idols/$id': typeof IdolsIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/finance'
+    | '/groups'
+    | '/idols'
+    | '/market'
+    | '/onboarding'
+    | '/recruit'
+    | '/release'
+    | '/rivals'
+    | '/schedule'
+    | '/settings'
+    | '/training'
+    | '/idols/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/finance'
+    | '/groups'
+    | '/idols'
+    | '/market'
+    | '/onboarding'
+    | '/recruit'
+    | '/release'
+    | '/rivals'
+    | '/schedule'
+    | '/settings'
+    | '/training'
+    | '/idols/$id'
+  id:
+    | '__root__'
+    | '/'
+    | '/finance'
+    | '/groups'
+    | '/idols'
+    | '/market'
+    | '/onboarding'
+    | '/recruit'
+    | '/release'
+    | '/rivals'
+    | '/schedule'
+    | '/settings'
+    | '/training'
+    | '/idols/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  FinanceRoute: typeof FinanceRoute
+  GroupsRoute: typeof GroupsRoute
+  IdolsRoute: typeof IdolsRouteWithChildren
+  MarketRoute: typeof MarketRoute
+  OnboardingRoute: typeof OnboardingRoute
+  RecruitRoute: typeof RecruitRoute
+  ReleaseRoute: typeof ReleaseRoute
+  RivalsRoute: typeof RivalsRoute
+  ScheduleRoute: typeof ScheduleRoute
+  SettingsRoute: typeof SettingsRoute
+  TrainingRoute: typeof TrainingRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/training': {
+      id: '/training'
+      path: '/training'
+      fullPath: '/training'
+      preLoaderRoute: typeof TrainingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/schedule': {
+      id: '/schedule'
+      path: '/schedule'
+      fullPath: '/schedule'
+      preLoaderRoute: typeof ScheduleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/rivals': {
+      id: '/rivals'
+      path: '/rivals'
+      fullPath: '/rivals'
+      preLoaderRoute: typeof RivalsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/release': {
+      id: '/release'
+      path: '/release'
+      fullPath: '/release'
+      preLoaderRoute: typeof ReleaseRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/recruit': {
+      id: '/recruit'
+      path: '/recruit'
+      fullPath: '/recruit'
+      preLoaderRoute: typeof RecruitRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/onboarding': {
+      id: '/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof OnboardingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/market': {
+      id: '/market'
+      path: '/market'
+      fullPath: '/market'
+      preLoaderRoute: typeof MarketRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/idols': {
+      id: '/idols'
+      path: '/idols'
+      fullPath: '/idols'
+      preLoaderRoute: typeof IdolsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/groups': {
+      id: '/groups'
+      path: '/groups'
+      fullPath: '/groups'
+      preLoaderRoute: typeof GroupsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/finance': {
+      id: '/finance'
+      path: '/finance'
+      fullPath: '/finance'
+      preLoaderRoute: typeof FinanceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,22 +284,40 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/idols/$id': {
+      id: '/idols/$id'
+      path: '/$id'
+      fullPath: '/idols/$id'
+      preLoaderRoute: typeof IdolsIdRouteImport
+      parentRoute: typeof IdolsRoute
+    }
   }
 }
 
+interface IdolsRouteChildren {
+  IdolsIdRoute: typeof IdolsIdRoute
+}
+
+const IdolsRouteChildren: IdolsRouteChildren = {
+  IdolsIdRoute: IdolsIdRoute,
+}
+
+const IdolsRouteWithChildren = IdolsRoute._addFileChildren(IdolsRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  FinanceRoute: FinanceRoute,
+  GroupsRoute: GroupsRoute,
+  IdolsRoute: IdolsRouteWithChildren,
+  MarketRoute: MarketRoute,
+  OnboardingRoute: OnboardingRoute,
+  RecruitRoute: RecruitRoute,
+  ReleaseRoute: ReleaseRoute,
+  RivalsRoute: RivalsRoute,
+  ScheduleRoute: ScheduleRoute,
+  SettingsRoute: SettingsRoute,
+  TrainingRoute: TrainingRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
