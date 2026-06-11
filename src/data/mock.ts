@@ -19,6 +19,21 @@ export const cities = [
   { id: "bangkok", name: "Bangkok", flag: "🇹🇭", desc: "Regional growth hub, balanced costs and fan expansion.", budget: "₩2.00B", difficulty: "Medium", fan: 1.25, cost: 0.85, revenue: 1.0, competition: 55 },
 ];
 
+import kaiImg from "@/assets/idols/kai.png";
+import yunaImg from "@/assets/idols/yuna.png";
+import jihoonImg from "@/assets/idols/jihoon.png";
+import haruImg from "@/assets/idols/haru.png";
+import seulgiImg from "@/assets/idols/seulgi.png";
+import minjiImg from "@/assets/idols/minji.png";
+import soraImg from "@/assets/idols/sora.png";
+import leoImg from "@/assets/idols/leo.png";
+import lunaImg from "@/assets/idols/luna.png";
+
+export const idolImages: Record<string, string> = {
+  kai: kaiImg, yuna: yunaImg, jihoon: jihoonImg, haru: haruImg,
+  seulgi: seulgiImg, minji: minjiImg, sora: soraImg, leo: leoImg, luna: lunaImg,
+};
+
 export type Status = "Active" | "Trainee" | "Resting" | "Injured" | "Promoting";
 
 export type Idol = {
