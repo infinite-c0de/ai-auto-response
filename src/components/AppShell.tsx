@@ -159,15 +159,21 @@ export function SkillBar({ label, value, color = "teal" }: { label: string; valu
   );
 }
 
-export function Avatar({ name, gradient, size = 48, ring }: { name: string; gradient: string; size?: number; ring?: boolean }) {
+export function Avatar({ name, gradient, size = 48, ring, image }: { name: string; gradient: string; size?: number; ring?: boolean; image?: string }) {
   const initials = name.slice(0, 2).toUpperCase();
   return (
     <div
       className={`relative grid shrink-0 place-items-center overflow-hidden rounded-xl bg-gradient-to-br ${gradient} ${ring ? "ring-2 ring-cyan-300/60" : ""}`}
       style={{ width: size, height: size }}
     >
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.35),transparent_55%)]" />
-      <span className="font-display text-xs font-bold tracking-wider text-white/90">{initials}</span>
+      {image ? (
+        <img src={image} alt={name} loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
+      ) : (
+        <>
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.35),transparent_55%)]" />
+          <span className="font-display text-xs font-bold tracking-wider text-white/90">{initials}</span>
+        </>
+      )}
     </div>
   );
 }
