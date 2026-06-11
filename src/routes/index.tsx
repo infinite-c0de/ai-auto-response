@@ -67,7 +67,7 @@ function Home() {
             {stats.map(s => (
               <div key={s.label} className="flex flex-col items-center gap-1.5">
                 <span className="text-[9px] uppercase tracking-wider text-muted-foreground">{s.label}</span>
-                <div className="relative h-24 w-3 overflow-hidden rounded-full bg-white/8">
+                <div className="relative h-24 w-3 overflow-hidden rounded-full bg-white/10">
                   <div className="absolute inset-x-0 bottom-0 rounded-full bg-gradient-to-t from-fuchsia-500 to-cyan-300 shadow-[0_0_10px_rgba(34,211,238,0.7)]" style={{ height: `${s.v}%` }} />
                 </div>
                 <span className="font-display text-xs font-bold">{s.v}</span>
@@ -157,7 +157,7 @@ function ScheduleCard({ s }: { s: typeof schedule[number] }) {
   const accent = s.accent === "teal" ? "neon-teal" : s.accent === "violet" ? "neon-violet" : "border border-rose-400/50";
   const badge = s.badge === "pinned" ? <Pin className="h-3.5 w-3.5 rotate-45 text-fuchsia-300" /> : s.badge === "alert" ? <AlertCircle className="h-3.5 w-3.5 text-rose-400" /> : <CheckCircle2 className="h-3.5 w-3.5 text-cyan-300" />;
   return (
-    <div className={`relative rounded-2xl bg-white/3 p-3 ${accent}`}>
+    <div className={`relative rounded-2xl bg-white/[0.04] p-3 ${accent}`}>
       <div className="absolute right-2 top-2">{badge}</div>
       <div className="flex items-start gap-2">
         <span className="font-display text-2xl font-black text-gradient-teal">{s.num}.</span>

@@ -51,7 +51,7 @@ function MarketPage() {
           {opportunities.map(o => {
             const tone = o.tone === "mint" ? "border-emerald-300/40 text-emerald-300" : o.tone === "hot" ? "border-rose-300/40 text-rose-300" : o.tone === "violet" ? "border-fuchsia-300/40 text-fuchsia-300" : "border-cyan-300/40 text-cyan-300";
             return (
-              <li key={o.text} className={`flex items-start gap-3 rounded-xl border ${tone} bg-white/3 p-3`}>
+              <li key={o.text} className={`flex items-start gap-3 rounded-xl border ${tone} bg-white/[0.04] p-3`}>
                 <TrendingUp className="h-4 w-4" />
                 <div className="min-w-0">
                   <div className="text-[10px] font-bold uppercase tracking-wider opacity-80">{o.region}</div>
