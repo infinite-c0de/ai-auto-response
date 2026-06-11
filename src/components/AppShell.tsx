@@ -39,7 +39,7 @@ export function TopBar() {
         <div className="hidden items-center gap-3 text-xs sm:flex">
           <span className="font-display font-semibold">{fmt(agency.money)}</span>
           <span className="flex items-center gap-1 text-fuchsia-300"><Gem className="h-3.5 w-3.5"/>{agency.gems.toLocaleString()}</span>
-          <span className="flex items-center gap-1 text-mint-300"><Zap className="h-3.5 w-3.5 text-emerald-300"/>{agency.energy}/{agency.energyMax}</span>
+          <span className="flex items-center gap-1 text-emerald-300"><Zap className="h-3.5 w-3.5 text-emerald-300"/>{agency.energy}/{agency.energyMax}</span>
         </div>
       </div>
       <div className="flex items-center justify-between gap-2 px-4 pb-2 text-[11px] sm:hidden">
