@@ -1,34 +1,23 @@
 const CONFIG = {
-    // Keep true while testing.
-    // When true, AI replies go only to TEST_EMAIL, not real customers.
+    // true  = safe testing, sends reply only to TEST_EMAIL
+    // false = live mode, replies inside the original Gmail thread
     TEST_MODE: false,
     TEST_EMAIL: '1seoglobal1@gmail.com',
 
     MICHAEL_EMAIL: 'mike@withoutatrace.com',
-    BUSINESS_NAME: 'Without A Trace',
     SHIPPING_URL: 'https://www.withoutatrace.com/shipping/',
 
     PROCESSED_LABEL: 'AI Auto Replied',
     ERROR_LABEL: 'AI Auto Reply Error',
 
-    // These must match Gmail labels exactly.
-    LABELS_TO_CHECK: [
-        'Web Requests',
-        'web requests',
-        'GARMENT SERVICE REQUEST',
-        'Garment Service Request',
-        'garment service request'
-    ],
-
     MODEL: 'gpt-4o-mini',
 
-    // Keep this as 1 while testing.
-    MAX_THREADS_PER_RUN: 1
+    MAX_EMAILS_TO_SEND_PER_RUN: 2,
+    MAX_THREADS_TO_CHECK: 30
 };
 
 /**
- * Emergency stop.
- * Run this if emails start looping.
+ * Run this immediately if anything loops.
  */
 function emergencyStopAiAutoReplySystem() {
     ScriptApp.getProjectTriggers().forEach(trigger => {
@@ -41,9 +30,9 @@ function emergencyStopAiAutoReplySystem() {
 }
 
 /**
- * Setup.
- * Run this once after saving the code.
- * It resets the start time so old emails are ignored.
+ * Run this after saving the code.
+ * It resets the start time, clears old processing flags,
+ * and creates the 1-minute trigger.
  */
 function setupAiAutoReplySystem() {
     emergencyStopAiAutoReplySystem();
@@ -51,9 +40,11 @@ function setupAiAutoReplySystem() {
     getOrCreateLabel_(CONFIG.PROCESSED_LABEL);
     getOrCreateLabel_(CONFIG.ERROR_LABEL);
 
+    clearOldAiProperties_();
+
     const props = PropertiesService.getScriptProperties();
 
-    // Ignore all emails before this setup time.
+    // Important: emails received before this time are ignored.
     props.setProperty('START_TIME_MS', String(Date.now()));
 
     ScriptApp.newTrigger('autoSendAiRepliesForNewWebRequests')
@@ -65,15 +56,13 @@ function setupAiAutoReplySystem() {
 }
 
 /**
- * Main function.
- * Trigger runs this every minute.
+ * Main function. Trigger runs this every minute.
  */
 function autoSendAiRepliesForNewWebRequests() {
     const lock = LockService.getScriptLock();
 
-    // Prevent two runs from happening at the same time.
     if (!lock.tryLock(1000)) {
-        Logger.log('Another run is already active. Skipping this run.');
+        Logger.log('Another run is active. Skipping.');
         return;
     }
 
@@ -90,36 +79,55 @@ function autoSendAiRepliesForNewWebRequests() {
         const errorLabel = getOrCreateLabel_(CONFIG.ERROR_LABEL);
 
         const threads = getCandidateThreads_();
+        Logger.log('Candidate thread count: ' + threads.length);
 
-        threads.forEach(thread => {
+        let sentCount = 0;
+
+        for (const thread of threads) {
+            if (sentCount >= CONFIG.MAX_EMAILS_TO_SEND_PER_RUN) break;
+
+            let processingKey = '';
+
             try {
-                if (threadHasLabel_(thread, CONFIG.PROCESSED_LABEL)) return;
-                if (threadHasLabel_(thread, CONFIG.ERROR_LABEL)) return;
-                if (thread.isInTrash()) return;
+                if (thread.isInTrash()) continue;
 
                 const messages = thread.getMessages();
-                const latestMessage = messages[messages.length - 1];
-                if (!latestMessage) return;
+                const latestMessage = getLatestOriginalWebRequestMessage_(messages, startTimeMs);
 
-                if (!isSafeOriginalWebRequest_(latestMessage, startTimeMs)) return;
+                if (!latestMessage) {
+                    Logger.log('No safe original web request message found in thread.');
+                    continue;
+                }
 
                 const messageId = latestMessage.getId();
                 const processedKey = 'processed_' + messageId;
-                const processingKey = 'processing_' + messageId;
+                processingKey = 'processing_' + messageId;
 
-                if (props.getProperty(processedKey) === '1') return;
-                if (props.getProperty(processingKey) === '1') return;
+                if (props.getProperty(processedKey) === '1') {
+                    Logger.log('Already processed message: ' + messageId);
+                    continue;
+                }
+
+                if (props.getProperty(processingKey) === '1') {
+                    Logger.log('Already processing message: ' + messageId);
+                    continue;
+                }
 
                 props.setProperty(processingKey, '1');
 
                 const parsed = parseWebRequest_(latestMessage);
+
+                Logger.log('Subject: ' + parsed.subject);
+                Logger.log('Customer name: ' + parsed.customerName);
+                Logger.log('Customer email: ' + parsed.customerEmail);
+                Logger.log('Customer message: ' + parsed.customerMessage);
 
                 if (!parsed.customerEmail || !isValidEmail_(parsed.customerEmail)) {
                     throw new Error('Could not find valid customer email.');
                 }
 
                 if (parsed.customerEmail.toLowerCase().includes('@withoutatrace.com')) {
-                    throw new Error('Customer email looks like business email. Skipping.');
+                    throw new Error('Parsed customer email is business email. Not sending.');
                 }
 
                 if (!parsed.customerMessage || parsed.customerMessage.length < 5) {
@@ -136,35 +144,52 @@ function autoSendAiRepliesForNewWebRequests() {
 
                 const finalReply = appendRequiredBusinessInfo_(cleanReply_(aiReply));
 
-                let sendTo = parsed.customerEmail;
-                let emailSubject = 'Re: Your request to Without A Trace';
-                let emailBody = finalReply;
-
                 if (CONFIG.TEST_MODE) {
-                    sendTo = CONFIG.TEST_EMAIL;
-                    emailSubject = 'AI Auto Reply Test - ' + (parsed.customerName || 'Customer');
-                    emailBody =
+                    const testSubject = 'AI Auto Reply Test - ' + (parsed.customerName || 'Customer');
+                    const testBody =
                         'TEST MODE ONLY\n' +
                         'Real customer email would be: ' + parsed.customerEmail + '\n\n' +
                         finalReply;
+
+                    GmailApp.sendEmail(CONFIG.TEST_EMAIL, testSubject, testBody, {
+                        name: 'Michael Ehrlich - Without A Trace',
+                        replyTo: CONFIG.MICHAEL_EMAIL
+                    });
+
+                    Logger.log('TEST MODE: sent test reply to ' + CONFIG.TEST_EMAIL);
+                } else {
+                    // LIVE MODE:
+                    // Replies inside the original Gmail thread.
+                    // Contact Form 7 Mail 1 should have: Reply-To: [your-email]
+                    latestMessage.reply(finalReply, {
+                        name: 'Michael Ehrlich - Without A Trace',
+                        replyTo: CONFIG.MICHAEL_EMAIL
+                    });
+
+                    Logger.log('LIVE MODE: replied inside thread for ' + parsed.customerEmail);
                 }
 
-                GmailApp.sendEmail(sendTo, emailSubject, emailBody, {
-                    name: 'Michael Ehrlich - Without A Trace',
-                    replyTo: CONFIG.MICHAEL_EMAIL
-                });
+                const webRequestsLabel = GmailApp.getUserLabelByName('Web Requests');
+                if (webRequestsLabel) {
+                    thread.addLabel(webRequestsLabel);
+                }
 
                 thread.addLabel(processedLabel);
                 props.setProperty(processedKey, '1');
-                props.deleteProperty(processingKey);
-
-                Logger.log('AI reply sent to: ' + sendTo);
+                sentCount++;
 
             } catch (error) {
                 thread.addLabel(errorLabel);
                 Logger.log('Error processing thread: ' + error);
+
+            } finally {
+                if (processingKey) {
+                    props.deleteProperty(processingKey);
+                }
             }
-        });
+        }
+
+        Logger.log('Run finished. Sent count: ' + sentCount);
 
     } finally {
         lock.releaseLock();
@@ -172,17 +197,23 @@ function autoSendAiRepliesForNewWebRequests() {
 }
 
 /**
- * Finds only likely new web request threads.
+ * Finds possible Web Request threads.
+ * This searches broadly because some Web Request emails may be archived,
+ * labeled, or not in Inbox.
  */
 function getCandidateThreads_() {
     const results = [];
     const seen = {};
 
-    CONFIG.LABELS_TO_CHECK.forEach(labelName => {
-        const label = GmailApp.getUserLabelByName(labelName);
-        if (!label) return;
+    const queries = [
+        'newer_than:1d "Without A Trace CONTACT FORM" -in:sent -subject:"AI Auto Reply Test" -subject:"[TEST]" -subject:"Re:"',
+        'newer_than:1d "Web Request" -in:sent -subject:"AI Auto Reply Test" -subject:"[TEST]" -subject:"Re:"',
+        'newer_than:1d from:contact@withoutatrace.com -in:sent -subject:"AI Auto Reply Test" -subject:"[TEST]" -subject:"Re:"',
+        'newer_than:1d from:mike@withoutatrace.com "Without A Trace CONTACT FORM" -in:sent -subject:"AI Auto Reply Test" -subject:"[TEST]" -subject:"Re:"'
+    ];
 
-        const threads = label.getThreads(0, CONFIG.MAX_THREADS_PER_RUN);
+    queries.forEach(query => {
+        const threads = GmailApp.search(query, 0, CONFIG.MAX_THREADS_TO_CHECK);
 
         threads.forEach(thread => {
             if (!seen[thread.getId()]) {
@@ -192,76 +223,97 @@ function getCandidateThreads_() {
         });
     });
 
-    const searchQuery =
-        'newer_than:1d in:inbox subject:"Without A Trace CONTACT FORM" -subject:"AI Auto Reply Test" -subject:"[TEST]" -subject:"Re:"';
+    const labelsToCheck = [
+        'Web Requests',
+        'Web Request',
+        'web requests',
+        'web request',
+        'GARMENT SERVICE REQUEST',
+        'Garment Service Request',
+        'garment service request'
+    ];
 
-    const searchThreads = GmailApp.search(searchQuery, 0, CONFIG.MAX_THREADS_PER_RUN);
+    labelsToCheck.forEach(labelName => {
+        const label = GmailApp.getUserLabelByName(labelName);
+        if (!label) return;
 
-    searchThreads.forEach(thread => {
-        if (!seen[thread.getId()]) {
-            seen[thread.getId()] = true;
-            results.push(thread);
-        }
+        const threads = label.getThreads(0, CONFIG.MAX_THREADS_TO_CHECK);
+
+        threads.forEach(thread => {
+            if (!seen[thread.getId()]) {
+                seen[thread.getId()] = true;
+                results.push(thread);
+            }
+        });
     });
 
-    return results.slice(0, CONFIG.MAX_THREADS_PER_RUN);
+    return results;
 }
 
 /**
- * Strong safety check to prevent loops.
+ * Finds the newest original Web Request message inside a thread.
+ * This avoids replying to AI/test/reply messages.
+ */
+function getLatestOriginalWebRequestMessage_(messages, startTimeMs) {
+    for (let i = messages.length - 1; i >= 0; i--) {
+        const message = messages[i];
+
+        if (isSafeOriginalWebRequest_(message, startTimeMs)) {
+            return message;
+        }
+    }
+
+    return null;
+}
+
+/**
+ * Safety checks.
  */
 function isSafeOriginalWebRequest_(message, startTimeMs) {
     const messageDateMs = message.getDate().getTime();
-
     if (messageDateMs < startTimeMs) return false;
 
     const subject = message.getSubject() || '';
     const body = message.getPlainBody() || '';
 
-    // Do not process replies, forwards, or test emails.
     if (/^\s*re:/i.test(subject)) return false;
     if (/^\s*fwd?:/i.test(subject)) return false;
     if (subject.includes('[TEST]')) return false;
     if (/AI Auto Reply Test/i.test(subject)) return false;
 
-    // Do not process AI-generated emails.
     if (/TEST MODE ONLY/i.test(body)) return false;
     if (/Thank you,\s*Michael\s*Without A Trace/i.test(body)) return false;
     if (/AI Auto Reply/i.test(body)) return false;
 
-    // Must look like a website form notification.
-    const looksLikeContactForm =
+    const looksLikeWebRequest =
         /Without A Trace CONTACT FORM/i.test(subject) ||
         /Web Request/i.test(subject) ||
         /Garment Service Request/i.test(subject) ||
         /From:\s*/i.test(body);
 
-    if (!looksLikeContactForm) return false;
+    if (!looksLikeWebRequest) return false;
 
-    // The original website email body should contain customer info.
-    if (!/From:\s*/i.test(body)) return false;
+    if (!/From:\s*/i.test(body) && !/<[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}>/i.test(subject)) {
+        return false;
+    }
 
     return true;
 }
 
 /**
- * Parse customer info from Contact Form 7 email.
+ * Parses customer info from the Web Request email.
  */
 function parseWebRequest_(message) {
     const subject = message.getSubject() || '';
     const rawBody = normalizeLineBreaks_(message.getPlainBody() || '');
     const body = stripQuotedText_(rawBody);
 
-    const customerEmail = extractCustomerEmail_(body, subject);
-    const customerName = extractCustomerName_(body, subject);
-    const customerMessage = extractCustomerMessage_(body);
-
     return {
         subject: subject,
         body: body,
-        customerEmail: customerEmail,
-        customerName: customerName,
-        customerMessage: customerMessage
+        customerEmail: extractCustomerEmail_(body, subject),
+        customerName: extractCustomerName_(body, subject),
+        customerMessage: extractCustomerMessage_(body)
     };
 }
 
@@ -270,10 +322,10 @@ function generateReplyWithOpenAI_({ apiKey, customerName, customerEmail, subject
   You write automatic customer email replies for Michael Ehrlich at Without A Trace.
   
   Your job:
-  Read the customer's message carefully, identify the important keywords and phrases, understand what service they are asking about, and write a personalized reply.
+  Read the customer's message carefully. Identify important keywords and phrases. Understand what they are asking about. Write a personalized reply.
   
-  Do NOT send the same style of response every time.
-  Vary the wording naturally from email to email, but stay within the approved business rules.
+  Do not send the exact same response every time.
+  Vary wording naturally from email to email, but stay within the approved business rules.
   
   Business:
   Without A Trace works with purses, designer handbags, leather jackets, fur coats, reweaving, cleaning, repairs, alterations, and restoration.
@@ -301,7 +353,7 @@ function generateReplyWithOpenAI_({ apiKey, customerName, customerEmail, subject
   - Do not give a final estimate by email.
   - Do not give a final estimate from photos.
   - Do not promise that the work can definitely be done unless it is very general.
-  - Do not give prices unless the customer is asking about something very simple and Michael has clearly provided a price range before. In general, avoid prices.
+  - Do not give prices.
   - In most cases, say the item needs to be inspected before Michael can give a quote or final answer.
   - Encourage the customer to bring the item in or ship it.
   - If shipping, tell them to use the shipping page, print the form, fill it out, sign it, and include it with the item.
@@ -344,7 +396,7 @@ function generateReplyWithOpenAI_({ apiKey, customerName, customerEmail, subject
   
   Write only the main personalized email body.
   `;
-  
+
     const userPrompt = `
   Customer name: ${customerName}
   Customer email: ${customerEmail}
@@ -357,50 +409,48 @@ function generateReplyWithOpenAI_({ apiKey, customerName, customerEmail, subject
   Do not make it generic.
   Use the customer's keywords and item type to shape the response.
   `;
-  
+
     const payload = {
-      model: CONFIG.MODEL,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ],
-      temperature: 0.45,
-      max_tokens: 350
+        model: CONFIG.MODEL,
+        messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt }
+        ],
+        temperature: 0.45,
+        max_tokens: 350
     };
-  
+
     const response = UrlFetchApp.fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'post',
-      contentType: 'application/json',
-      headers: {
-        Authorization: 'Bearer ' + apiKey
-      },
-      payload: JSON.stringify(payload),
-      muteHttpExceptions: true
+        method: 'post',
+        contentType: 'application/json',
+        headers: {
+            Authorization: 'Bearer ' + apiKey
+        },
+        payload: JSON.stringify(payload),
+        muteHttpExceptions: true
     });
-  
+
     const code = response.getResponseCode();
     const text = response.getContentText();
-  
+
     if (code < 200 || code >= 300) {
-      throw new Error('OpenAI API error: ' + text);
+        throw new Error('OpenAI API error: ' + text);
     }
-  
+
     const json = JSON.parse(text);
     return json.choices[0].message.content;
-  }
+}
 
 /**
- * Always adds shipping URL, both locations, and one clean signature.
+ * Adds shipping URL, locations, and clean signature every time.
  */
 function appendRequiredBusinessInfo_(reply) {
     let text = reply.trim();
 
-    // Remove accidental duplicate shipping/location blocks if AI adds them.
     text = text.replace(/\n*\s*Shipping page:[\s\S]*$/i, '').trim();
     text = text.replace(/\n*\s*Bryn Mawr location:[\s\S]*$/i, '').trim();
     text = text.replace(/\n*\s*Walton location:[\s\S]*$/i, '').trim();
 
-    // Remove AI-created endings/signatures.
     text = removeAiClosings_(text);
 
     const requiredInfo =
@@ -427,9 +477,6 @@ function appendRequiredBusinessInfo_(reply) {
     return text + requiredInfo;
 }
 
-/**
- * Removes unwanted AI closing lines from the end.
- */
 function removeAiClosings_(text) {
     let result = text.trim();
 
@@ -477,29 +524,35 @@ function extractCustomerEmail_(body, subject) {
 
 function extractCustomerName_(body, subject) {
     let match = subject.match(/CONTACT FORM\s*-\s*([^<]+)/i);
-    if (match && match[1]) return match[1].trim();
+    if (match && match[1]) return firstNameOnly_(match[1].trim());
 
     match = body.match(/From:\s*([^<\n\r]+)/i);
-    if (match && match[1]) return match[1].trim();
+    if (match && match[1]) return firstNameOnly_(match[1].trim());
 
     return '';
 }
 
+function firstNameOnly_(name) {
+    return name.replace(/["']/g, '').trim().split(/\s+/)[0];
+}
+
 function extractCustomerMessage_(body) {
-    let cleanBody = stripQuotedText_(body).trim();
+    const cleanBody = stripQuotedText_(body).trim();
 
     let match = cleanBody.match(/Message:\s*([\s\S]*)/i);
     if (match && match[1]) {
         return match[1].trim().substring(0, 4000);
     }
 
-    // Handles format:
-    // From: Name
-    //
-    // Customer message here
     match = cleanBody.match(/From:[^\n\r]*(?:\r?\n){1,3}([\s\S]*)/i);
     if (match && match[1]) {
         return match[1].trim().substring(0, 4000);
+    }
+
+    // If body starts with From: Name and then message on next lines
+    const lines = cleanBody.split('\n').map(line => line.trim()).filter(Boolean);
+    if (lines.length > 1 && /^From:/i.test(lines[0])) {
+        return lines.slice(1).join('\n').trim().substring(0, 4000);
     }
 
     return cleanBody.substring(0, 4000);
@@ -533,13 +586,25 @@ function getOrCreateLabel_(name) {
     return GmailApp.getUserLabelByName(name) || GmailApp.createLabel(name);
 }
 
-function threadHasLabel_(thread, labelName) {
-    return thread.getLabels().some(label => label.getName() === labelName);
+function clearOldAiProperties_() {
+    const props = PropertiesService.getScriptProperties();
+    const all = props.getProperties();
+
+    Object.keys(all).forEach(key => {
+        if (
+            key.indexOf('processed_') === 0 ||
+            key.indexOf('processing_') === 0 ||
+            key.indexOf('error_') === 0
+        ) {
+            props.deleteProperty(key);
+        }
+    });
+
+    Logger.log('Old AI processing properties cleared.');
 }
 
 /**
- * Optional API test.
- * Run this after adding OPENAI_API_KEY.
+ * Optional OpenAI API test.
  */
 function testOpenAiApiKey() {
     const apiKey = PropertiesService.getScriptProperties().getProperty('OPENAI_API_KEY');
