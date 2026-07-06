@@ -22,7 +22,7 @@ const CONFIG = {
 
     MODEL: 'gpt-4o-mini',
 
-    // Keep this as 1 while testing to prevent many emails.
+    // Keep this as 1 while testing.
     MAX_THREADS_PER_RUN: 1
 };
 
@@ -134,7 +134,7 @@ function autoSendAiRepliesForNewWebRequests() {
                     customerMessage: parsed.customerMessage
                 });
 
-                const finalReply = cleanReply_(aiReply);
+                const finalReply = appendRequiredBusinessInfo_(cleanReply_(aiReply));
 
                 let sendTo = parsed.customerEmail;
                 let emailSubject = 'Re: Your request to Without A Trace';
@@ -192,8 +192,6 @@ function getCandidateThreads_() {
         });
     });
 
-    // Backup search, but only inbox and only original contact form subjects.
-    // This avoids replying to sent/test/reply messages.
     const searchQuery =
         'newer_than:1d in:inbox subject:"Without A Trace CONTACT FORM" -subject:"AI Auto Reply Test" -subject:"[TEST]" -subject:"Re:"';
 
@@ -269,100 +267,194 @@ function parseWebRequest_(message) {
 
 function generateReplyWithOpenAI_({ apiKey, customerName, customerEmail, subject, customerMessage }) {
     const systemPrompt = `
-You write automatic customer email replies for Michael Ehrlich at Without A Trace.
-
-Business:
-Without A Trace works with purses, designer handbags, leather jackets, fur coats, reweaving, cleaning, repairs, alterations, and restoration.
-
-Michael's writing style:
-Direct, helpful, simple, confident, not too formal.
-Do not sound like a generic autoresponder.
-Do not say this is AI.
-Do not say this is an automatic reply.
-Do not over-explain.
-Keep the reply short and practical.
-
-Important business rules:
-- Do not give a final estimate by email.
-- Do not give a final estimate from photos.
-- In most cases, say the item needs to be inspected before a quote can be given.
-- Push the customer to bring the item in or ship it.
-- If shipping, tell the customer to use the Shipping page, print the form, fill it out, sign it, and include it with the item.
-- Once the item is received and inspected, Michael will contact them to go over the work and provide an estimate.
-
-Service-specific guidance:
-- If the customer asks about a purse, designer handbag, Gucci, Chanel, Louis Vuitton, lining, or hardware, mention purse/handbag repair or restoration.
-- If branded hardware is requested, say branded hardware may not be available, but repair or replacement options can be reviewed after inspection.
-- If the customer asks about leather jacket, sleeves, zipper, cuffs, or alterations, mention leather garment work and that fitting/inspection may be needed.
-- If the customer asks about fur, mention fur cleaning, storage, and repairs where relevant.
-- If the customer asks about reweaving, moth holes, holes, tears, or damage, mention that it needs to be inspected to see what repair or reweaving is possible.
-- If the customer asks about stains, odor, pet urine, smoke, or cleaning, say Michael can take a look, but the item needs inspection.
-
-Locations:
-Bryn Mawr location:
-3344 W. Bryn Mawr
-Chicago, IL
-Hours: Monday through Thursday, 7:00 AM – 4:00 PM
-Phone: 773-588-4922
-
-Walton location:
-100 E. Walton
-Chicago, IL
-Hours: Tuesday through Friday, 9:30 AM – 5:30 PM
-Saturday, 9:30 AM – 3:00 PM
-Phone: 312-787-9922
-
-Shipping page:
-${CONFIG.SHIPPING_URL}
-
-Write only the email body.
-Keep it short.
-End with:
-Thank you,
-Michael
-Without A Trace
-`;
-
+  You write automatic customer email replies for Michael Ehrlich at Without A Trace.
+  
+  Your job:
+  Read the customer's message carefully, identify the important keywords and phrases, understand what service they are asking about, and write a personalized reply.
+  
+  Do NOT send the same style of response every time.
+  Vary the wording naturally from email to email, but stay within the approved business rules.
+  
+  Business:
+  Without A Trace works with purses, designer handbags, leather jackets, fur coats, reweaving, cleaning, repairs, alterations, and restoration.
+  
+  Michael's real writing style:
+  - Direct
+  - Simple
+  - Helpful
+  - Confident
+  - Not too formal
+  - Not too polished
+  - Sounds like a real person, not a generic autoresponder
+  - Short paragraphs
+  - Push the customer to bring in or ship the item
+  
+  Examples of Michael's style:
+  - "We need the purse before we can give you a quote."
+  - "We can help."
+  - "Bring it in."
+  - "Ship it to us."
+  - "Go to our website, look for shipping, print the form, fill it out, sign it, and include it with the item."
+  - "Once we receive and inspect it, we will contact you."
+  
+  Important business rules:
+  - Do not give a final estimate by email.
+  - Do not give a final estimate from photos.
+  - Do not promise that the work can definitely be done unless it is very general.
+  - Do not give prices unless the customer is asking about something very simple and Michael has clearly provided a price range before. In general, avoid prices.
+  - In most cases, say the item needs to be inspected before Michael can give a quote or final answer.
+  - Encourage the customer to bring the item in or ship it.
+  - If shipping, tell them to use the shipping page, print the form, fill it out, sign it, and include it with the item.
+  - Do not invent repair methods, timelines, guarantees, or exact pricing.
+  - Do not say "AI", "automatic reply", or "system".
+  
+  How to personalize:
+  Use the customer's exact request to guide the answer.
+  
+  If they mention purse, bag, handbag, Gucci, Chanel, Louis Vuitton, Prada, lining, or hardware:
+  Write a handbag/purse-related reply. If they ask about branded hardware, explain that branded hardware may not be available, but Michael can review repair or replacement options after seeing the item.
+  
+  If they mention leather jacket, leather coat, sleeves, zipper, cuffs, shortening, fitting, or alteration:
+  Write a leather garment/alteration-related reply. Mention that Michael needs to see it, and fitting may be needed.
+  
+  If they mention hole, moth hole, tear, rip, sweater, knit, reweaving, or damage:
+  Write a repair/reweaving-related reply. Say Michael needs to inspect it to see what repair or reweaving option is possible.
+  
+  If they mention fur, fur coat, mink, storage, cleaning, or repair:
+  Write a fur-related reply. Mention inspection and fur cleaning/repair/storage if relevant.
+  
+  If they mention stain, odor, smell, cat pee, pet urine, smoke, water, cleaning, or restoration:
+  Write a cleaning/restoration-related reply. Say Michael can take a look, but the item needs inspection.
+  
+  If the customer asks "can you help?" or asks a general question:
+  Give a general but personal reply and push them to bring it in or ship it.
+  
+  Required response style:
+  - Start with: Hi customer first name,
+  - Keep the reply short, usually 2 to 4 short paragraphs.
+  - Make it specific to the customer's item.
+  - Mention the item they asked about.
+  - Do not sound too perfect or corporate.
+  - Do not use "I can definitely help."
+  - Do not use "Looking forward to helping you."
+  - Do not include Best, Regards, Thank you, Michael, or Without A Trace.
+  - Do not include the full location block.
+  - Do not include the shipping URL.
+  - The system will add shipping URL, locations, and signature automatically.
+  
+  Write only the main personalized email body.
+  `;
+  
     const userPrompt = `
-Customer name: ${customerName}
-Customer email: ${customerEmail}
-Original email subject: ${subject}
-
-Customer message:
-${customerMessage}
-
-Write a personalized reply to this customer.
-`;
-
+  Customer name: ${customerName}
+  Customer email: ${customerEmail}
+  Original email subject: ${subject}
+  
+  Customer message:
+  ${customerMessage}
+  
+  Write a personalized reply based on the customer's message.
+  Do not make it generic.
+  Use the customer's keywords and item type to shape the response.
+  `;
+  
     const payload = {
-        model: CONFIG.MODEL,
-        messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt }
-        ],
-        temperature: 0.35,
-        max_tokens: 450
+      model: CONFIG.MODEL,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      temperature: 0.45,
+      max_tokens: 350
     };
-
+  
     const response = UrlFetchApp.fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'post',
-        contentType: 'application/json',
-        headers: {
-            Authorization: 'Bearer ' + apiKey
-        },
-        payload: JSON.stringify(payload),
-        muteHttpExceptions: true
+      method: 'post',
+      contentType: 'application/json',
+      headers: {
+        Authorization: 'Bearer ' + apiKey
+      },
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
     });
-
+  
     const code = response.getResponseCode();
     const text = response.getContentText();
-
+  
     if (code < 200 || code >= 300) {
-        throw new Error('OpenAI API error: ' + text);
+      throw new Error('OpenAI API error: ' + text);
     }
-
+  
     const json = JSON.parse(text);
     return json.choices[0].message.content;
+  }
+
+/**
+ * Always adds shipping URL, both locations, and one clean signature.
+ */
+function appendRequiredBusinessInfo_(reply) {
+    let text = reply.trim();
+
+    // Remove accidental duplicate shipping/location blocks if AI adds them.
+    text = text.replace(/\n*\s*Shipping page:[\s\S]*$/i, '').trim();
+    text = text.replace(/\n*\s*Bryn Mawr location:[\s\S]*$/i, '').trim();
+    text = text.replace(/\n*\s*Walton location:[\s\S]*$/i, '').trim();
+
+    // Remove AI-created endings/signatures.
+    text = removeAiClosings_(text);
+
+    const requiredInfo =
+        `\n\nShipping page:
+  ${CONFIG.SHIPPING_URL}
+  
+  Bryn Mawr location:
+  3344 W. Bryn Mawr
+  Chicago, IL
+  Hours: Monday through Thursday, 7:00 AM – 4:00 PM
+  Phone: 773-588-4922
+  
+  Walton location:
+  100 E. Walton
+  Chicago, IL
+  Hours: Tuesday through Friday, 9:30 AM – 5:30 PM
+  Saturday, 9:30 AM – 3:00 PM
+  Phone: 312-787-9922
+  
+  Thank you,
+  Michael
+  Without A Trace`;
+
+    return text + requiredInfo;
+}
+
+/**
+ * Removes unwanted AI closing lines from the end.
+ */
+function removeAiClosings_(text) {
+    let result = text.trim();
+
+    const patterns = [
+        /\n+\s*(Looking forward to helping you!?|Looking forward to hearing from you\.?|Hope this helps\.?)\s*$/i,
+        /\n+\s*(Best|Regards|Thanks|Thank you|Sincerely),?\s*\n\s*Michael\s*(?:\n\s*Without A Trace)?\s*$/i,
+        /\n+\s*(Best|Regards|Thanks|Thank you|Sincerely),?\s*$/i,
+        /\n+\s*Michael\s*(?:\n\s*Without A Trace)?\s*$/i
+    ];
+
+    let changed = true;
+    let count = 0;
+
+    while (changed && count < 10) {
+        changed = false;
+        count++;
+
+        patterns.forEach(pattern => {
+            const before = result;
+            result = result.replace(pattern, '').trim();
+            if (before !== result) changed = true;
+        });
+    }
+
+    return result.trim();
 }
 
 function extractCustomerEmail_(body, subject) {
@@ -401,7 +493,7 @@ function extractCustomerMessage_(body) {
         return match[1].trim().substring(0, 4000);
     }
 
-    // Handles current format:
+    // Handles format:
     // From: Name
     //
     // Customer message here
