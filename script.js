@@ -37,7 +37,7 @@ function emergencyStopAiAutoReplySystem() {
 function setupAiAutoReplySystem() {
     emergencyStopAiAutoReplySystem();
 
-    getOrCreateLabel_(CONFIG.PROCESSED_LABEL);
+    // getOrCreateLabel_(CONFIG.PROCESSED_LABEL);
     getOrCreateLabel_(CONFIG.ERROR_LABEL);
 
     clearOldAiProperties_();
@@ -75,7 +75,7 @@ function autoSendAiRepliesForNewWebRequests() {
         }
 
         const startTimeMs = Number(props.getProperty('START_TIME_MS') || Date.now());
-        const processedLabel = getOrCreateLabel_(CONFIG.PROCESSED_LABEL);
+        // const processedLabel = getOrCreateLabel_(CONFIG.PROCESSED_LABEL);
         const errorLabel = getOrCreateLabel_(CONFIG.ERROR_LABEL);
 
         const threads = getCandidateThreads_();
@@ -174,7 +174,7 @@ function autoSendAiRepliesForNewWebRequests() {
                     thread.addLabel(webRequestsLabel);
                 }
 
-                thread.addLabel(processedLabel);
+                // thread.addLabel(processedLabel);
                 props.setProperty(processedKey, '1');
                 sentCount++;
 
@@ -206,10 +206,10 @@ function getCandidateThreads_() {
     const seen = {};
 
     const queries = [
-        'newer_than:1d "Without A Trace CONTACT FORM" -in:sent -subject:"AI Auto Reply Test" -subject:"[TEST]" -subject:"Re:"',
-        'newer_than:1d "Web Request" -in:sent -subject:"AI Auto Reply Test" -subject:"[TEST]" -subject:"Re:"',
-        'newer_than:1d from:contact@withoutatrace.com -in:sent -subject:"AI Auto Reply Test" -subject:"[TEST]" -subject:"Re:"',
-        'newer_than:1d from:mike@withoutatrace.com "Without A Trace CONTACT FORM" -in:sent -subject:"AI Auto Reply Test" -subject:"[TEST]" -subject:"Re:"'
+        'newer_than:1d subject:"Without A Trace CONTACT FORM" -subject:"AI Auto Reply Test" -subject:"[TEST]" -subject:"Re:"',
+        'newer_than:1d subject:"New submission from Garment Service Request" -subject:"AI Auto Reply Test" -subject:"[TEST]" -subject:"Re:"',
+        'newer_than:1d "Order Number:" -subject:"AI Auto Reply Test" -subject:"[TEST]" -subject:"Re:"',
+        'newer_than:1d "Web Request" -subject:"AI Auto Reply Test" -subject:"[TEST]" -subject:"Re:"'
     ];
 
     queries.forEach(query => {
@@ -225,9 +225,7 @@ function getCandidateThreads_() {
 
     const labelsToCheck = [
         'Web Requests',
-        'Web Request',
-        'web requests',
-        'web request'
+        'Web Request'
     ];
 
     labelsToCheck.forEach(labelName => {
