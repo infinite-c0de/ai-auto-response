@@ -1,5 +1,5 @@
 const CONFIG = {
-    // true  = safe testing, sends reply only to TEST_EMAIL
+    // true  = safe test mode, sends reply only to TEST_EMAIL
     // false = live mode, replies inside the original Gmail thread
     TEST_MODE: false,
     TEST_EMAIL: '1seoglobal1@gmail.com',
@@ -7,7 +7,7 @@ const CONFIG = {
     MICHAEL_EMAIL: 'mike@withoutatrace.com',
     SHIPPING_URL: 'https://www.withoutatrace.com/shipping/',
 
-    PROCESSED_LABEL: 'AI Auto Replied',
+    MAIN_LABEL: 'Web Requests',
     ERROR_LABEL: 'AI Auto Reply Error',
 
     MODEL: 'gpt-4o-mini',
@@ -17,6 +17,7 @@ const CONFIG = {
 };
 
 /**
+ * Emergency stop.
  * Run this immediately if anything loops.
  */
 function emergencyStopAiAutoReplySystem() {
@@ -30,6 +31,7 @@ function emergencyStopAiAutoReplySystem() {
 }
 
 /**
+ * Setup.
  * Run this after saving the code.
  * It resets the start time, clears old processing flags,
  * and creates the 1-minute trigger.
@@ -37,14 +39,14 @@ function emergencyStopAiAutoReplySystem() {
 function setupAiAutoReplySystem() {
     emergencyStopAiAutoReplySystem();
 
-    // getOrCreateLabel_(CONFIG.PROCESSED_LABEL);
+    getOrCreateLabel_(CONFIG.MAIN_LABEL);
     getOrCreateLabel_(CONFIG.ERROR_LABEL);
 
     clearOldAiProperties_();
 
     const props = PropertiesService.getScriptProperties();
 
-    // Important: emails received before this time are ignored.
+    // Emails received before this time are ignored.
     props.setProperty('START_TIME_MS', String(Date.now()));
 
     ScriptApp.newTrigger('autoSendAiRepliesForNewWebRequests')
@@ -75,7 +77,6 @@ function autoSendAiRepliesForNewWebRequests() {
         }
 
         const startTimeMs = Number(props.getProperty('START_TIME_MS') || Date.now());
-        // const processedLabel = getOrCreateLabel_(CONFIG.PROCESSED_LABEL);
         const errorLabel = getOrCreateLabel_(CONFIG.ERROR_LABEL);
 
         const threads = getCandidateThreads_();
@@ -95,7 +96,7 @@ function autoSendAiRepliesForNewWebRequests() {
                 const latestMessage = getLatestOriginalWebRequestMessage_(messages, startTimeMs);
 
                 if (!latestMessage) {
-                    Logger.log('No safe original web request message found in thread.');
+                    Logger.log('No safe original Web Request message found in thread.');
                     continue;
                 }
 
@@ -142,7 +143,11 @@ function autoSendAiRepliesForNewWebRequests() {
                     customerMessage: parsed.customerMessage
                 });
 
-                const finalReply = appendRequiredBusinessInfo_(cleanReply_(aiReply));
+                const finalReply = appendRequiredBusinessInfo_(
+                    cleanBadAiPhrases_(
+                        cleanReply_(aiReply)
+                    )
+                );
 
                 if (CONFIG.TEST_MODE) {
                     const testSubject = 'AI Auto Reply Test - ' + (parsed.customerName || 'Customer');
@@ -159,8 +164,8 @@ function autoSendAiRepliesForNewWebRequests() {
                     Logger.log('TEST MODE: sent test reply to ' + CONFIG.TEST_EMAIL);
                 } else {
                     // LIVE MODE:
-                    // Replies inside the original Gmail thread.
-                    // Contact Form 7 Mail 1 should have: Reply-To: [your-email]
+                    // This replies inside the original Gmail thread.
+                    // Contact Form 7 Mail 1 must have: Reply-To: [your-email]
                     latestMessage.reply(finalReply, {
                         name: 'Michael Ehrlich - Without A Trace',
                         replyTo: CONFIG.MICHAEL_EMAIL
@@ -169,12 +174,12 @@ function autoSendAiRepliesForNewWebRequests() {
                     Logger.log('LIVE MODE: replied inside thread for ' + parsed.customerEmail);
                 }
 
-                const webRequestsLabel = GmailApp.getUserLabelByName('Web Requests');
-                if (webRequestsLabel) {
-                    thread.addLabel(webRequestsLabel);
-                }
+                // Keep the thread under Web Requests.
+                addLabelToThread_(thread, CONFIG.MAIN_LABEL);
 
-                // thread.addLabel(processedLabel);
+                // Do not add the old AI Auto Replied label anymore.
+                removeLabelFromThread_(thread, 'AI Auto Replied');
+
                 props.setProperty(processedKey, '1');
                 sentCount++;
 
@@ -206,10 +211,11 @@ function getCandidateThreads_() {
     const seen = {};
 
     const queries = [
-        'newer_than:1d subject:"Without A Trace CONTACT FORM" -subject:"AI Auto Reply Test" -subject:"[TEST]" -subject:"Re:"',
-        'newer_than:1d subject:"New submission from Garment Service Request" -subject:"AI Auto Reply Test" -subject:"[TEST]" -subject:"Re:"',
-        'newer_than:1d "Order Number:" -subject:"AI Auto Reply Test" -subject:"[TEST]" -subject:"Re:"',
-        'newer_than:1d "Web Request" -subject:"AI Auto Reply Test" -subject:"[TEST]" -subject:"Re:"'
+        'newer_than:1d "Without A Trace CONTACT FORM" -in:sent -subject:"AI Auto Reply Test" -subject:"[TEST]" -subject:"Re:"',
+        'newer_than:1d "Web Request" -in:sent -subject:"AI Auto Reply Test" -subject:"[TEST]" -subject:"Re:"',
+        'newer_than:1d from:contact@withoutatrace.com -in:sent -subject:"AI Auto Reply Test" -subject:"[TEST]" -subject:"Re:"',
+        'newer_than:1d from:mike@withoutatrace.com "Without A Trace CONTACT FORM" -in:sent -subject:"AI Auto Reply Test" -subject:"[TEST]" -subject:"Re:"',
+        'newer_than:1d "New submission from Garment Service Request" -in:sent -subject:"AI Auto Reply Test" -subject:"[TEST]" -subject:"Re:"'
     ];
 
     queries.forEach(query => {
@@ -225,7 +231,12 @@ function getCandidateThreads_() {
 
     const labelsToCheck = [
         'Web Requests',
-        'Web Request'
+        'Web Request',
+        'web requests',
+        'web request',
+        'GARMENT SERVICE REQUEST',
+        'Garment Service Request',
+        'garment service request'
     ];
 
     labelsToCheck.forEach(labelName => {
@@ -284,6 +295,7 @@ function isSafeOriginalWebRequest_(message, startTimeMs) {
         /Without A Trace CONTACT FORM/i.test(subject) ||
         /Web Request/i.test(subject) ||
         /Garment Service Request/i.test(subject) ||
+        /New submission from Garment Service Request/i.test(subject) ||
         /From:\s*/i.test(body);
 
     if (!looksLikeWebRequest) return false;
@@ -312,98 +324,130 @@ function parseWebRequest_(message) {
     };
 }
 
+/**
+ * OpenAI prompt.
+ * Updated to be more positive/confident and avoid hesitant language.
+ */
 function generateReplyWithOpenAI_({ apiKey, customerName, customerEmail, subject, customerMessage }) {
     const systemPrompt = `
-You write automatic customer email replies for Michael Ehrlich at Without A Trace.
-
-Your job:
-Read the customer's message carefully. Identify important keywords and phrases. Understand what they are asking about. Write a personalized reply.
-
-Do not send the exact same response every time.
-Vary wording naturally from email to email, but stay within the approved business rules.
-
-Business:
-Without A Trace works with purses, designer handbags, leather jackets, fur coats, reweaving, cleaning, repairs, alterations, and restoration.
-
-Michael's real writing style:
-- Direct
-- Simple
-- Helpful
-- Confident
-- Not too formal
-- Not too polished
-- Sounds like a real person, not a generic autoresponder
-- Short paragraphs
-- Push the customer to bring in or ship the item
-
-Examples of Michael's style:
-- "We need the purse before we can give you a quote."
-- "We can help."
-- "Bring it in."
-- "Ship it to us."
-- "Go to our website, look for shipping, print the form, fill it out, sign it, and include it with the item."
-- "Once we receive and inspect it, we will contact you."
-
-Important business rules:
-- Do not give a final estimate by email.
-- Do not give a final estimate from photos.
-- Do not promise that the work can definitely be done unless it is very general.
-- Do not give prices.
-- In most cases, say the item needs to be inspected before Michael can give a quote or final answer.
-- Encourage the customer to bring the item in or ship it.
-- If shipping, tell them to use the shipping page, print the form, fill it out, sign it, and include it with the item.
-- Do not invent repair methods, timelines, guarantees, or exact pricing.
-- Do not say "AI", "automatic reply", or "system".
-
-How to personalize:
-Use the customer's exact request to guide the answer.
-
-If they mention purse, bag, handbag, Gucci, Chanel, Louis Vuitton, Prada, lining, or hardware:
-Write a handbag/purse-related reply. If they ask about branded hardware, explain that branded hardware may not be available, but Michael can review repair or replacement options after seeing the item.
-
-If they mention leather jacket, leather coat, sleeves, zipper, cuffs, shortening, fitting, or alteration:
-Write a leather garment/alteration-related reply. Mention that Michael needs to see it, and fitting may be needed.
-
-If they mention hole, moth hole, tear, rip, sweater, knit, reweaving, or damage:
-Write a repair/reweaving-related reply. Say Michael needs to inspect it to see what repair or reweaving option is possible.
-
-If they mention fur, fur coat, mink, storage, cleaning, or repair:
-Write a fur-related reply. Mention inspection and fur cleaning/repair/storage if relevant.
-
-If they mention stain, odor, smell, cat pee, pet urine, smoke, water, cleaning, or restoration:
-Write a cleaning/restoration-related reply. Say Michael can take a look, but the item needs inspection.
-
-If the customer asks "can you help?" or asks a general question:
-Give a general but personal reply and push them to bring it in or ship it.
-
-Required response style:
-- Start with: Hi customer first name,
-- Keep the reply short, usually 2 to 4 short paragraphs.
-- Make it specific to the customer's item.
-- Mention the item they asked about.
-- Do not sound too perfect or corporate.
-- Do not use "I can definitely help."
-- Do not use "Looking forward to helping you."
-- Do not include Best, Regards, Thank you, Michael, or Without A Trace.
-- Do not include the full location block.
-- Do not include the shipping URL.
-- The system will add shipping URL, locations, and signature automatically.
-
-Write only the main personalized email body.
-`;
+  You write automatic customer email replies for Michael Ehrlich at Without A Trace.
+  
+  Your job:
+  Read the customer's message carefully. Identify important keywords and phrases. Understand what they are asking about. Write a personalized reply.
+  
+  Do not send the exact same response every time.
+  Vary wording naturally from email to email, but stay within the approved business rules.
+  
+  Business:
+  Without A Trace works with purses, designer handbags, leather jackets, fur coats, reweaving, cleaning, repairs, alterations, and restoration.
+  
+  Michael's real writing style:
+  - Direct
+  - Simple
+  - Helpful
+  - Confident
+  - Positive
+  - Not too formal
+  - Not too polished
+  - Sounds like a real person, not a generic autoresponder
+  - Short paragraphs
+  - Push the customer to bring in or ship the item
+  
+  Very important tone rule:
+  The reply must give the customer confidence.
+  Do not sound unsure, negative, or hesitant.
+  
+  Do NOT use phrases like:
+  - "tricky situation"
+  - "maybe we can help"
+  - "we might be able to help"
+  - "I don't know if we can"
+  - "we can definitely take a look"
+  - "we may be able to"
+  - "it might work"
+  - "not sure"
+  - "possibly"
+  
+  Better phrases to use:
+  - "We can help with this."
+  - "We handle this type of work."
+  - "We can work on this type of item."
+  - "We need to see the item first so we can give you the best repair options."
+  - "Once we inspect it, we can go over the work and give you an accurate estimate."
+  - "Bring it in or ship it to us."
+  
+  Examples of Michael's style:
+  - "We need the purse before we can give you a quote."
+  - "We can help."
+  - "Bring it in."
+  - "Ship it to us."
+  - "Go to our website, look for shipping, print the form, fill it out, sign it, and include it with the item."
+  - "Once we receive and inspect it, we will contact you."
+  
+  Important business rules:
+  - Do not give a final estimate by email.
+  - Do not give a final estimate from photos.
+  - Do not give prices.
+  - Do not invent repair methods, timelines, guarantees, or exact pricing.
+  - Do not say "AI", "automatic reply", or "system".
+  - Do not say the job is impossible.
+  - Do not make the customer feel uncertain.
+  - Be positive and confident, but still say the item needs to be inspected before giving a final quote or final repair plan.
+  - Encourage the customer to bring the item in or ship it.
+  - If shipping, tell them to use the shipping page, print the form, fill it out, sign it, and include it with the item.
+  
+  How to personalize:
+  Use the customer's exact request to guide the answer.
+  
+  If they mention purse, bag, handbag, Gucci, Chanel, Louis Vuitton, Prada, lining, or hardware:
+  Write a confident handbag/purse-related reply. If they ask about branded hardware, explain that branded hardware may not be available, but repair or replacement options can be reviewed after seeing the item.
+  
+  If they mention leather jacket, leather coat, sleeves, zipper, cuffs, shortening, fitting, or alteration:
+  Write a confident leather garment/alteration-related reply. Mention that Michael needs to see it, and fitting or inspection may be needed.
+  
+  If they mention hole, moth hole, tear, rip, sweater, knit, reweaving, or damage:
+  Write a confident repair/reweaving-related reply. Say Without A Trace handles this type of work and needs to inspect it to choose the best repair or reweaving option.
+  
+  If they mention fur, fur coat, mink, storage, cleaning, or repair:
+  Write a confident fur-related reply. Mention fur cleaning, repair, or storage if relevant, and say inspection is needed.
+  
+  If they mention stain, odor, smell, cat pee, pet urine, smoke, water, cleaning, or restoration:
+  Write a confident cleaning/restoration-related reply. Say Without A Trace can help with this type of item, but it needs to be inspected.
+  
+  If the customer asks "can you help?" or asks a general question:
+  Give a general but personal reply and push them to bring it in or ship it.
+  
+  Required response style:
+  - Start with: Hi customer first name,
+  - Keep the reply short, usually 2 to 4 short paragraphs.
+  - Make it specific to the customer's item.
+  - Mention the item they asked about.
+  - Be positive and confident.
+  - Do not sound too perfect or corporate.
+  - Do not use "I can definitely help."
+  - Do not use "Looking forward to helping you."
+  - Do not include Best, Regards, Thank you, Michael, or Without A Trace.
+  - Do not include the full location block.
+  - Do not include the shipping URL.
+  - The system will add shipping URL, locations, and signature automatically.
+  
+  Write only the main personalized email body.
+  `;
 
     const userPrompt = `
-Customer name: ${customerName}
-Customer email: ${customerEmail}
-Original email subject: ${subject}
-
-Customer message:
-${customerMessage}
-
-Write a personalized reply based on the customer's message.
-Do not make it generic.
-Use the customer's keywords and item type to shape the response.
-`;
+  Customer name: ${customerName}
+  Customer email: ${customerEmail}
+  Original email subject: ${subject}
+  
+  Customer message:
+  ${customerMessage}
+  
+  Write a personalized reply based on the customer's message.
+  Do not make it generic.
+  Use the customer's keywords and item type to shape the response.
+  Make the reply positive and confident.
+  Do not use hesitant language.
+  `;
 
     const payload = {
         model: CONFIG.MODEL,
@@ -411,7 +455,7 @@ Use the customer's keywords and item type to shape the response.
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userPrompt }
         ],
-        temperature: 0.45,
+        temperature: 0.35,
         max_tokens: 350
     };
 
@@ -450,33 +494,52 @@ function appendRequiredBusinessInfo_(reply) {
 
     const requiredInfo =
         `\n\nShipping page:
-${CONFIG.SHIPPING_URL}
-
-Bryn Mawr location:
-3344 W. Bryn Mawr
-Chicago, IL
-Hours: Monday through Thursday, 7:00 AM – 4:00 PM
-Phone: 773-588-4922
-
-Walton location:
-100 E. Walton
-Chicago, IL
-Hours: Tuesday through Friday, 9:30 AM – 5:30 PM
-Saturday, 9:30 AM – 3:00 PM
-Phone: 312-787-9922
-
-Thank you,
-Michael
-Without A Trace`;
+  ${CONFIG.SHIPPING_URL}
+  
+  Bryn Mawr location:
+  3344 W. Bryn Mawr
+  Chicago, IL
+  Hours: Monday through Thursday, 7:00 AM – 4:00 PM
+  Phone: 773-588-4922
+  
+  Walton location:
+  100 E. Walton
+  Chicago, IL
+  Hours: Tuesday through Friday, 9:30 AM – 5:30 PM
+  Saturday, 9:30 AM – 3:00 PM
+  Phone: 312-787-9922
+  
+  Thank you,
+  Michael
+  Without A Trace`;
 
     return text + requiredInfo;
+}
+
+/**
+ * Removes unwanted AI wording and hesitant phrases.
+ */
+function cleanBadAiPhrases_(text) {
+    return text
+        .replace(/That sounds like a tricky situation,?\s*/gi, '')
+        .replace(/This sounds like a tricky situation,?\s*/gi, '')
+        .replace(/maybe we can help/gi, 'we can help')
+        .replace(/we might be able to help/gi, 'we can help')
+        .replace(/we may be able to help/gi, 'we can help')
+        .replace(/I don't know if we can/gi, 'we need to inspect it first')
+        .replace(/not sure if we can/gi, 'we need to inspect it first')
+        .replace(/we can definitely take a look at it/gi, 'we can help with this type of work')
+        .replace(/we can take a look at it/gi, 'we can help with this type of work')
+        .replace(/might work/gi, 'can be reviewed after inspection')
+        .replace(/possibly/gi, 'after inspection')
+        .trim();
 }
 
 function removeAiClosings_(text) {
     let result = text.trim();
 
     const patterns = [
-        /\n+\s*(Looking forward to helping you!?|Looking forward to hearing from you\.?|Hope this helps\.?)\s*$/i,
+        /\n+\s*(Looking forward to helping you!?|Looking forward to hearing from you\.?|Hope this helps\.?|Let me know if you have any questions about the process!?|Let me know if you have any questions\.?)\s*$/i,
         /\n+\s*(Best|Regards|Thanks|Thank you|Sincerely),?\s*\n\s*Michael\s*(?:\n\s*Without A Trace)?\s*$/i,
         /\n+\s*(Best|Regards|Thanks|Thank you|Sincerely),?\s*$/i,
         /\n+\s*Michael\s*(?:\n\s*Without A Trace)?\s*$/i
@@ -544,7 +607,6 @@ function extractCustomerMessage_(body) {
         return match[1].trim().substring(0, 4000);
     }
 
-    // If body starts with From: Name and then message on next lines
     const lines = cleanBody.split('\n').map(line => line.trim()).filter(Boolean);
     if (lines.length > 1 && /^From:/i.test(lines[0])) {
         return lines.slice(1).join('\n').trim().substring(0, 4000);
@@ -579,6 +641,18 @@ function isValidEmail_(email) {
 
 function getOrCreateLabel_(name) {
     return GmailApp.getUserLabelByName(name) || GmailApp.createLabel(name);
+}
+
+function addLabelToThread_(thread, labelName) {
+    const label = GmailApp.getUserLabelByName(labelName) || GmailApp.createLabel(labelName);
+    thread.addLabel(label);
+}
+
+function removeLabelFromThread_(thread, labelName) {
+    const label = GmailApp.getUserLabelByName(labelName);
+    if (label) {
+        thread.removeLabel(label);
+    }
 }
 
 function clearOldAiProperties_() {
